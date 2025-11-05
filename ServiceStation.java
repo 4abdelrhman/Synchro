@@ -2,19 +2,19 @@ import java.util.*;
 
 public class ServiceStation {
     private final Queue<Car> queue;
-    private final SemaphoreCustom empty;
-    private final SemaphoreCustom full;
-    private final SemaphoreCustom mutex;
-    private final SemaphoreCustom pumps;
+    private final semaphore empty;
+    private final semaphore full;
+    private final semaphore mutex;
+    private final semaphore pumps;
     private final int totalCars;
     private int servicedCars = 0;
 
     public ServiceStation(int waitingArea, int pumpCount, List<String> carOrder) {
         this.queue = new LinkedList<>();
-        this.empty = new SemaphoreCustom(waitingArea);
-        this.full = new SemaphoreCustom(0);
-        this.mutex = new SemaphoreCustom(1);
-        this.pumps = new SemaphoreCustom(pumpCount);
+        this.empty = new semaphore(waitingArea);
+        this.full = new semaphore(0);
+        this.mutex = new semaphore(1);
+        this.pumps = new semaphore(pumpCount);
         this.totalCars = carOrder.size();
 
         for (int i = 1; i <= pumpCount; i++) {
@@ -52,23 +52,21 @@ public class ServiceStation {
     }
 }
 
-class SemaphoreCustom {
-    private int value;
+class semaphore {
+    protected int value = 0;
 
-    public SemaphoreCustom(int value) {
-        this.value = value;
-    }
+    protected semaphore() { value = 0; }
+    protected semaphore(int initial) { value = initial; }
 
-    public synchronized void acquire() {
-        while (value == 0) {
-            try { wait(); } catch (InterruptedException ignored) {}
-        }
+    public synchronized void P() {
         value--;
+        if (value < 0)
+            try { wait(); } catch( InterruptedException e ) { }
     }
 
-    public synchronized void release() {
+    public synchronized void V() {
         value++;
-        notifyAll();
+        if (value <= 0) notify();
     }
 
     public synchronized int availablePermits() {
@@ -79,9 +77,9 @@ class SemaphoreCustom {
 class Car extends Thread {
     private final String name;
     private final Queue<Car> queue;
-    private final SemaphoreCustom empty, full, mutex, pumps;
+    private final semaphore empty, full, mutex, pumps;
 
-    public Car(String name, Queue<Car> queue, SemaphoreCustom empty, SemaphoreCustom full, SemaphoreCustom mutex, SemaphoreCustom pumps) {
+    public Car(String name, Queue<Car> queue, semaphore empty, semaphore full, semaphore mutex, semaphore pumps) {
         this.name = name;
         this.queue = queue;
         this.empty = empty;
@@ -99,23 +97,23 @@ class Car extends Thread {
             System.out.println(name + " arrived and waiting");
         }
 
-        empty.acquire();
-        mutex.acquire();
+        empty.P();
+        mutex.P();
 
         queue.add(this);
 
-        mutex.release();
-        full.release();
+        mutex.V();
+        full.V();
     }
 }
 
 class Pump extends Thread {
     private final int id;
     private final Queue<Car> queue;
-    private final SemaphoreCustom empty, full, mutex, pumps;
+    private final semaphore empty, full, mutex, pumps;
     private final ServiceStation station;
 
-    public Pump(int id, Queue<Car> queue, SemaphoreCustom empty, SemaphoreCustom full, SemaphoreCustom mutex, SemaphoreCustom pumps, ServiceStation station) {
+    public Pump(int id, Queue<Car> queue, semaphore empty, semaphore full, semaphore mutex, semaphore pumps, ServiceStation station) {
         this.id = id;
         this.queue = queue;
         this.empty = empty;
@@ -127,24 +125,24 @@ class Pump extends Thread {
 
     public void run() {
         while (true) {
-            full.acquire();
-            pumps.acquire();
-            mutex.acquire();
+            full.P();
+            pumps.P();
+            mutex.P();
 
             Car car = queue.remove();
             System.out.println("Pump " + id + ": " + car.getCarName() + " Occupied");
             System.out.println("Pump " + id + ": " + car.getCarName() + " login");
             System.out.println("Pump " + id + ": " + car.getCarName() + " begins service at Bay " + id);
 
-            mutex.release();
-            empty.release();
+            mutex.V();
+            empty.V();
 
             try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
 
             System.out.println("Pump " + id + ": " + car.getCarName() + " finishes service");
             System.out.println("Pump " + id + ": Bay " + id + " is now free");
 
-            pumps.release();
+            pumps.V();
             station.carServiced();
         }
     }
