@@ -41,6 +41,13 @@ public class ServiceStation {
         System.out.print("Waiting area capacity: ");
         int waiting = sc.nextInt();
 
+        while (waiting < 1 || waiting > 10) {
+            System.out.println("Invalid input! Waiting area must be between 1 and 10.");
+            System.out.print("Enter waiting area capacity again: ");
+            waiting = sc.nextInt();
+        }
+
+
         System.out.print("Number of service bays (pumps): ");
         int pumpCount = sc.nextInt();
         sc.nextLine();
