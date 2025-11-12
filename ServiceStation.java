@@ -47,7 +47,6 @@ public class ServiceStation {
             waiting = sc.nextInt();
         }
 
-
         System.out.print("Number of service bays (pumps): ");
         int pumpCount = sc.nextInt();
         sc.nextLine();
@@ -65,13 +64,13 @@ class semaphore {
     protected semaphore() { value = 0; }
     protected semaphore(int initial) { value = initial; }
 
-    public synchronized void P() {
+    public synchronized void acquire() {
         value--;
         if (value < 0)
             try { wait(); } catch( InterruptedException e ) { }
     }
 
-    public synchronized void V() {
+    public synchronized void release() {
         value++;
         if (value <= 0) notify();
     }
@@ -104,13 +103,13 @@ class Car extends Thread {
             System.out.println(name + " arrived and waiting");
         }
 
-        empty.P();
-        mutex.P();
+        empty.acquire();
+        mutex.acquire();
 
         queue.add(this);
 
-        mutex.V();
-        full.V();
+        mutex.release();
+        full.release();
     }
 }
 
@@ -132,24 +131,24 @@ class Pump extends Thread {
 
     public void run() {
         while (true) {
-            full.P();
-            pumps.P();
-            mutex.P();
+            full.acquire();
+            pumps.acquire();
+            mutex.acquire();
 
             Car car = queue.remove();
             System.out.println("Pump " + id + ": " + car.getCarName() + " Occupied");
             System.out.println("Pump " + id + ": " + car.getCarName() + " login");
             System.out.println("Pump " + id + ": " + car.getCarName() + " begins service at Bay " + id);
 
-            mutex.V();
-            empty.V();
+            mutex.release();
+            empty.release();
 
             try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
 
             System.out.println("Pump " + id + ": " + car.getCarName() + " finishes service");
             System.out.println("Pump " + id + ": Bay " + id + " is now free");
 
-            pumps.V();
+            pumps.release();
             station.carServiced();
         }
     }
